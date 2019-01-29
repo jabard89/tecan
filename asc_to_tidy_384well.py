@@ -6,8 +6,8 @@
 #export options: Direction=horizontal, result=matrix(separated)
 #insert data names=yes, add kinetic time stamps=yes, add temperatures=yes
 #date/time of measurement=yes,filter wavelength=yes, measurement params=yes
-#usage: python asc_to_tidy_96well.py n_channels filepath
-#usage example: 'python asc_to_tidy_96well.py 1 190129-1.asc'
+#usage: python asc_to_tidy_384well.py n_channels filepath
+#usage example: 'python asc_to_tidy_384well.py 1 190129-1.asc'
 
 #For a different plates size, chance the n_rows and n_cols appropriately
 
@@ -17,8 +17,8 @@ import os
 import numpy as np
 import csv
 import pathlib
-n_rows = 8
-n_cols = 12
+n_rows = 16
+n_cols = 24
 
 def main():
 	# This basic command line argument parsing code is provided.
