@@ -76,20 +76,20 @@ def main():
 				channels.append(columns[0])        
 			elif block_i == 0:
 				time.append(columns[0][0:-1]) #removes the trailing s        
-				data_temp = np.zeros((n_rows,n_cols),dtype = np.int32) #initialze the data array for this block
+				data_temp = np.zeros((n_rows,n_cols),dtype = np.float_) #initialze the data array for this block
 			elif block_i == 1:
 				temperature.append(columns[0].split(' ')[0]) #extract just the number
 			elif block_i > 1:
 				row_i = block_i - 2 #which row of the data are we in
 				for column_i,c in enumerate(columns):
 					if c:
-						data_temp[row_i,column_i] = c
+						data_temp[row_i,column_i] = float(c)
 				if block_i == (block_size - 1): #for the last row, add the matrix to the list of all data
 					data.append(data_temp)
 	#Determine how many measurements were made
 	n_measurements = divmod(len(data),n_channels)[0]
 	measured_wells_i = np.transpose(np.nonzero(data[0][:,:])) #extract the locations of all non-zero measurements
-	alphabet = ('A','B','C','D','E','F','G','H','I')
+	alphabet = ('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P')
 	measured_wells = []
 
 	for well_i in measured_wells_i:
