@@ -63,9 +63,9 @@ A script to generate a new .html for each bradford assay that plots the data, ge
 # Parameters
 
 ```{r set_global, echo = 'fase'}
-#file names are found in the python script below
-#file_name <- "tes_bradford"
-#data_directory <- path("E:\\Dropbox (Drummond Lab)\\Data_JB\\Plate\\Bradfords")
+#file names are also found in the python script below
+file_name <- "test_bradford"
+data_directory <- path("E:\\Dropbox (Drummond Lab)\\Data_JB\\Plate\\Bradfords")
 n_samples <- 1 #used to double check inputs
 #all parameters should be entered such that each sample has one entry in the lists
 sample_names <- list("test1")
