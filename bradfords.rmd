@@ -1,0 +1,246 @@
+---
+title: "Generate Fits for Bradfords"
+author: "Jared Bard"
+date: "2019/02/15"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+---
+
+
+
+```{r setup,warning=FALSE,message=FALSE,echo=FALSE}
+
+## knitr options for report generation
+knitr::opts_chunk$set(warning=FALSE,message=FALSE,echo=FALSE,cache=TRUE,
+                      results="show",
+                      fig.path="figure/sedfit-",
+                      cache.path="cache/sedfit-")
+
+
+## data processing options, packages, functions
+options(stringsAsFactors=FALSE)  # load character strings as strings
+library(plyr)
+library(reshape2) # data manipulation
+library(tidyverse) # more data manipulation
+library(modelr)
+library(tidyquant)
+library(stringr)
+#library(ggpubr)
+library(ggrepel)
+library(plotly) # interactive graphics
+library(lmodel2)
+library(zoo)
+library(cowplot) # extensions and nice defaults
+library(fs) #allows consistent file system manipulation
+library(investr) #for inverse prediction
+library(knitr)
+library(kableExtra) #extra styling on tables
+library(reticulate) #allows python in notebook
+ # set default theme for graphics
+# theme_set(theme_bw() %+replace% theme(panel.grid.minor=element_blank())) 
+theme_set(theme_cowplot(font_size=11) %+replace% 
+              theme(# panel.grid.major=element_line(size=0.15,colour="grey50"),
+                  panel.border=element_rect(colour = "grey50",
+                                            linetype = "solid",size=0.5),
+                    strip.background = element_blank()))
+
+graycol <- "#333333cc"
+orangecol <- "#cc5500cc"
+bluecol <- "#0000aacc"
+greencol <- "#22cc00cc"
+purplecol <- "#cc22cccc"
+
+```
+
+# Summary
+A script to generate a new .html for each bradford assay that plots the data, generates a line of best fit and calculates the concentrations
+
+# Parameters
+
+```{r set_global, echo = 'fase'}
+#file names are found in the python script below
+#file_name <- "tes_bradford"
+#data_directory <- path("E:\\Dropbox (Drummond Lab)\\Data_JB\\Plate\\Bradfords")
+n_samples <- 1 #used to double check inputs
+#all parameters should be entered such that each sample has one entry in the lists
+sample_names <- list("test1")
+sample_dilutions <- list(c(0.1,0.1,0.1))
+sample_rows <- list("D")
+sample_cols <- list(c(1:3))
+sample_mws <- list(50e3) #in Da
+
+#Standards
+#Default is BSA
+standard_reps <- 3
+standard_wells <- list(str_c("A",1:5),str_c("B",1:5),str_c("C",1:5))
+standard_concentrations <- c(0.5,0.5/2,0.5/4,0.5/8,0.5/16) %>% list(.,.,.)
+standard_mw <- 50e3
+```
+```{python}
+#Jared Bard 2019-01-14
+#Script to process tecan data into tidy_data
+#Written for python 3.7
+#Export to ascii file settings: Decimal = point, Delimiter = Tabulator, Encoding = Unicode
+#export options: Direction=horizontal, result=matrix(separated)
+#insert data names=yes, add kinetic time stamps=yes, add temperatures=yes
+#date/time of measurement=yes,filter wavelength=yes, measurement params=yes
+import sys
+import os
+import numpy as np
+import csv
+import pathlib
+file_name = 'test_bradford'
+data_directory = 'E:\\Dropbox (Drummond Lab)\\Data_JB\\Plate\\Bradfords'
+python_string = data_directory + '/' + file_name + '.asc'
+n_rows = 8
+n_cols = 12
+
+def main(n_channels = 2, filename = python_string):
+  python_file = pathlib.Path(python_string)
+  print('Input file = ',end='')
+  print(python_file)
+  if python_file.exists() != 1:
+    print('ERROR! Please provide a .asc file')
+    sys.exit(1)
+  #initalize storage variables  
+  block_size = n_rows + 2
+  channels = []# names of channels
+  time = []# all of the time stamps
+  data = []#list of each matrix of data
+  temperature = []#list of all temperatures 
+  date = ''
+  start_time = ''
+  
+  with open(python_file, 'rt',encoding='utf-16') as f:
+    for line_num, line in enumerate(f):
+      line = line.strip('\n')
+      columns = line.split('\t')
+      c1 = columns[0]
+      if c1:#look for the measurement parameters
+        first_word = c1.split()[0]
+        if first_word == 'Date':
+          date = c1.split()[3][0:10]
+          start_time = c1.split()[6]
+          break
+      block_i = (line_num - n_channels) % block_size
+      if line_num == n_channels:
+        if columns[0] != '0s':
+          print('ERROR! Possibly the number of channels is incorrect.')
+          sys.exit(1)
+      
+      if line_num < n_channels:#the first few lines are the names of the channels 
+        channels.append(columns[0])
+      elif block_i == 0:
+        time.append(columns[0][0:-1])#removes the trailing s 
+        data_temp = np.zeros((n_rows,n_cols),dtype = np.float_)#initialze the data array for this block 
+      elif block_i == 1:
+        temperature.append(columns[0].split(' ')[0])#extract just the number
+      elif block_i > 1:
+        row_i = block_i - 2#which row of the data are we in
+        for column_i,c in enumerate(columns):
+          if c:
+            data_temp[row_i,column_i] = float(c)
+        if block_i == (block_size - 1):#for the last row, add the matrix to the list of all data
+          data.append(data_temp)
+  #Determine how many measurements were made
+  n_measurements = divmod(len(data),n_channels)[0]
+  measured_wells_i = np.transpose(np.nonzero(data[0][:,:]))#extract the locations of all non-zero measurements
+  alphabet = ('A','B','C','D','E','F','G','H','I')
+  measured_wells = []
+  
+  for well_i in measured_wells_i:
+  	alpha_i = well_i[0]
+  	num_i = well_i[1]
+  	measured_wells.append(alphabet[alpha_i]+str(num_i+1))#creates a list of which wells were measured
+  
+  #Goal is to make a table in tidy format. Go through each channel
+  #Extract the correct time, temp and value, and assign to a list
+  col_headers = ('Well', 'Time(s)', 'Temp(C)', 'Channel', 'Value','Date','Start_Time')
+  tidy_data = [col_headers]
+  for which_channel, channel in enumerate(channels):
+  	for which_well, well_i in enumerate(measured_wells_i):
+  		for which_read in range(n_measurements):
+  			read_index = which_channel*n_measurements+which_read
+  			value_temp = data[read_index][well_i[0],well_i[1]]
+  			time_temp = time[read_index]
+  			temperature_temp = temperature[read_index]
+  			well_temp = measured_wells[which_well]
+  			tidy_data.append([well_temp,time_temp,temperature_temp,
+  								channel,value_temp,date,start_time])
+  
+  file_to_write = python_file.parent / (python_file.name[0:-4] + '.csv')
+  with open(file_to_write, 'w',newline='') as f:
+  	writer = csv.writer(f)
+  	writer.writerows(tidy_data)
+  print('Output file = ',end='')
+  print(file_to_write)
+# This is the standard boilerplate that calls the main() function.
+main()
+```
+
+```{r load_data, echo = FALSE, results = 'hide'}
+file_path <- path(data_directory,str_c(file_name,".csv"))
+
+# check inputs
+if (! file_exists(file_path)) {stop("Please double check that the csv file exists")}
+if (n_samples != length(sample_names)) {stop("Check the number of sample_names")}
+if (n_samples != length(sample_dilutions)) {stop("Check the number of sample_dilutions")}
+if (n_samples != length(sample_rows)) {stop("Check the number of sample_rows")}
+if (n_samples != length(sample_cols)) {stop("Check the number of sample_cols")}
+if (standard_reps != length(standard_wells)) {stop("Check the standards")}
+
+#load the data output by github.com/jabard89/tecan/asc_to_csv
+d_orig <- read_csv(file_path)
+
+
+temp_tibble <- tibble('Well' = character(), 'Type' = character(),'Description' = character(),'MW' = numeric(), 'Concentration' = numeric(), 'Dilution' = numeric())
+#Standards
+for (i in 1:standard_reps) {
+  temp_tibble <- add_row(temp_tibble,'Well' = standard_wells[[i]], 'Type' = 'standard', 'Description' = 'BSA', 'MW' = standard_mw, 'Concentration' = standard_concentrations[[i]], 'Dilution' = 1)}
+
+#Samples
+for (i in 1:n_samples) {
+  sample_wells <- str_c(sample_rows[[i]],sample_cols[[i]])
+  temp_tibble <- add_row(temp_tibble,'Well' = sample_wells, 'Type' = 'Unknown', 'Description' = sample_names[[i]],'MW' = sample_mws[[i]], 'Dilution' = sample_dilutions[[i]])}
+
+
+#reconfigure data to generate a ratio of 590/450
+d <- d_orig %>% select(Well, Channel, Value) %>% spread(Channel,Value) %>% mutate(Ratio = A590 / A450) %>% inner_join(temp_tibble)
+
+```
+
+#Results
+```{r fit_data, echo = FALSE, results = 'hide'}
+d_model <- lm (Ratio ~ Concentration, data = d)
+
+#use calibrate function from investr package to calculate the approximate concentration for a given ratio
+
+d_calc <- d %>% rowwise() %>% mutate(Calc_conc = calibrate(d_model,Ratio,interval="Wald")$estimate) %>%
+  mutate(Calc_se = calibrate(d_model,Ratio,interval="Wald")$se) %>% 
+  mutate(Original_conc_mg_per_mL = Calc_conc / Dilution) %>%
+  mutate(Original_se_mg_per_mL = Calc_se / Dilution)  %>%
+  mutate(Original_conc_uM = Original_conc_mg_per_mL / MW * 1e6) %>%
+  mutate(Original_se_uM = Original_se_mg_per_mL / MW * 1e6)
+```
+
+##Calculated concentrations of the unknowns
+```{r unknown_table, echo = FALSE, results = 'asis'}
+unknown_table_columns <- c("Well","Description","Ratio (A590/A450)","Calculated Conc (mg/mL)","Dilution Factor","Original Conc (mg/mL)","SE","MW (Da)","Original Conc (uM)","SE")
+d_calc %>% filter(Type == 'Unknown') %>% select(Well, Description, Ratio, Calc_conc, Dilution, Original_conc_mg_per_mL, Original_se_mg_per_mL, MW, Original_conc_uM, Original_se_uM) %>% arrange(Description,Well) %>% kable(format='markdown',digits = 4, col.names = unknown_table_columns, align = (c("l","l",rep("c",7)))) %>% kable_styling(bootstrap_options = c("hover","condensed"),full_width = F, position = "left")
+```
+
+##Calculated concentrations of standards
+```{r standards_table, echo = FALSE, results = 'asis'}
+standard_table_columns <- c("Well","Description","Ratio (A590/A450)","Concentration (mg/mL)", "Calculated Conc", "Standard Error")
+d_calc %>% filter(Type == 'standard') %>% select(Well, Description, Ratio, Concentration, Calc_conc, Calc_se) %>% arrange(desc(Concentration)) %>% kable(digits = 4, col.names = standard_table_columns, align = c("l","l",rep("c",4))) %>% kable_styling(bootstrap_options = c("hover","condensed"),full_width = F, position = "left")
+```
+
+```{r plot, echo = FALSE, results = 'asis'}
+p <- ggplot(d_calc,aes(x=Concentration,y=Ratio)) + geom_point(data=d_calc %>% filter(Type == 'standard')) + geom_smooth(method = 'lm') + geom_point(data=d_calc %>% filter(Type == 'Unknown'),aes(x=Calc_conc, colour = Description)) + xlab("Concentration (mg/mL)") + ylab("Ratio (A590/A450") + ylim(0,4) + xlim(0,0.6)
+plot(p)
+```
