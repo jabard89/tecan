@@ -16,7 +16,7 @@ output:
 ```{r setup,warning=FALSE,message=FALSE,echo=FALSE}
 
 ## knitr options for report generation
-knitr::opts_chunk$set(warning=FALSE,message=FALSE,echo=FALSE,cache=TRUE,
+knitr::opts_chunk$set(warning=FALSE,message=FALSE,echo=FALSE,cache=FALSE,
                       results="show",
                       fig.path="figure/sedfit-",
                       cache.path="cache/sedfit-")
@@ -24,30 +24,28 @@ knitr::opts_chunk$set(warning=FALSE,message=FALSE,echo=FALSE,cache=TRUE,
 
 ## data processing options, packages, functions
 options(stringsAsFactors=FALSE)  # load character strings as strings
-library(plyr)
-library(reshape2) # data manipulation
 library(tidyverse) # more data manipulation
-library(modelr)
-library(tidyquant)
-library(stringr)
+#library(modelr)
+#library(tidyquant)
+#library(stringr)
 #library(ggpubr)
-library(ggrepel)
-library(plotly) # interactive graphics
-library(lmodel2)
-library(zoo)
-library(cowplot) # extensions and nice defaults
+#library(ggrepel)
+#library(plotly) # interactive graphics
+#library(lmodel2)
+#library(zoo)
+#library(cowplot) # extensions and nice defaults
 library(fs) #allows consistent file system manipulation
 library(investr) #for inverse prediction
 library(knitr)
 library(kableExtra) #extra styling on tables
-library(reticulate) #allows python in notebook
+#library(reticulate) #allows python in notebook
  # set default theme for graphics
 # theme_set(theme_bw() %+replace% theme(panel.grid.minor=element_blank())) 
-theme_set(theme_cowplot(font_size=11) %+replace% 
-              theme(# panel.grid.major=element_line(size=0.15,colour="grey50"),
-                  panel.border=element_rect(colour = "grey50",
-                                            linetype = "solid",size=0.5),
-                    strip.background = element_blank()))
+#theme_set(theme_cowplot(font_size=11) %+replace% 
+#              theme(# panel.grid.major=element_line(size=0.15,colour="grey50"),
+#                  panel.border=element_rect(colour = "grey50",
+#                                            linetype = "solid",size=0.5),
+#                    strip.background = element_blank()))
 
 graycol <- "#333333cc"
 orangecol <- "#cc5500cc"
@@ -63,14 +61,14 @@ A script to generate a new .html for each bradford assay that plots the data, ge
 # Parameters
 
 ```{r set_global, echo = 'fase'}
-file_name <- "test_bradford"
-data_directory <- path("E:\\Dropbox (Drummond Lab)\\Data_JB\\Plate\\Bradfords")
+remove(sample_wells_list)
+file_name <- "04042019-002" #file name without the trailing csv
+data_directory <- path("E:/Dropbox (Drummond Lab)/code_JB/")
 n_samples <- 1 #used to double check inputs
 #all parameters should be entered such that each sample has one entry in the lists
-sample_names <- list("test1")
+sample_names <- list("Nug1")
 sample_dilutions <- list(c(0.1,0.1,0.1))
-sample_rows <- list("D")
-sample_cols <- list(c(1:3))
+sample_wells_list <-list(c("A6","B6","C6"))
 sample_mws <- list(50e3) #in Da
 
 #Standards
@@ -88,8 +86,7 @@ file_path <- path(data_directory,str_c(file_name,".csv"))
 if (! file_exists(file_path)) {stop("Please double check that the csv file exists")}
 if (n_samples != length(sample_names)) {stop("Check the number of sample_names")}
 if (n_samples != length(sample_dilutions)) {stop("Check the number of sample_dilutions")}
-if (n_samples != length(sample_rows)) {stop("Check the number of sample_rows")}
-if (n_samples != length(sample_cols)) {stop("Check the number of sample_cols")}
+if (n_samples != length(sample_wells_list)) {stop("Check the number of sample_wells")}
 if (standard_reps != length(standard_wells)) {stop("Check the standards")}
 
 #load the data output by github.com/jabard89/tecan/asc_to_csv
@@ -103,7 +100,7 @@ for (i in 1:standard_reps) {
 
 #Samples
 for (i in 1:n_samples) {
-  sample_wells <- str_c(sample_rows[[i]],sample_cols[[i]])
+    sample_wells <- sample_wells_list[[i]]
   temp_tibble <- add_row(temp_tibble,'Well' = sample_wells, 'Type' = 'Unknown', 'Description' = sample_names[[i]],'MW' = sample_mws[[i]], 'Dilution' = sample_dilutions[[i]])}
 
 
@@ -139,6 +136,6 @@ d_calc %>% filter(Type == 'standard') %>% select(Well, Description, Ratio, Conce
 ```
 
 ```{r plot, echo = FALSE, results = 'asis'}
-p <- ggplot(d_calc,aes(x=Concentration,y=Ratio)) + geom_point(data=d_calc %>% filter(Type == 'standard')) + geom_smooth(method = 'lm') + geom_point(data=d_calc %>% filter(Type == 'Unknown'),aes(x=Calc_conc, colour = Description)) + xlab("Concentration (mg/mL)") + ylab("Ratio (A590/A450") + ylim(0,4) + xlim(0,0.6)
+p <- ggplot(d_calc,aes(x=Concentration,y=Ratio)) + geom_point(data=d_calc %>% filter(Type == 'standard')) + geom_smooth(method = 'lm') + geom_point(data=d_calc %>% filter(Type == 'Unknown'),aes(x=Calc_conc, colour = Description)) + xlab("Concentration (mg/mL)") + ylab("Ratio (A590/A450")
 plot(p)
 ```
