@@ -1,0 +1,48 @@
+---
+title: "calc_A280"
+author: "Jared Bard"
+date: "9/17/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fs)
+library(tidyverse)
+library(readxl)
+```
+```{r}
+file_dir <- path("C:/Users/jabar/Dropbox (Drummond Lab)/Data_JB/Plate/A280/")
+file <- "190917-1-112-1to20-111-1to20-111-1to10"
+file_path <- path(file_dir,paste(file,".xlsx",sep=""))
+file_tib <- read_excel(file_path)
+names(file_tib) <- c("Wavelength","Measured","Blank","Abs")
+
+wavelength.start <- as.numeric(file_tib[5,4])
+wavelength.end <- as.numeric((file_tib[6,4]))
+n.reads <- wavelength.end - wavelength.start
+samples <- unlist(strsplit(file,"-"))
+n_samples <- (length(samples)-2)/2
+d <- tibble()
+
+for (i in 1:n_samples){
+  str_i <- (i-1)*2+3
+  name <- samples[str_i]
+  dilution.vector <- as.numeric(unlist(strsplit(samples[str_i+1],"to")))
+  data_i <- (i-1)*4+(i-1)*n.reads + 13
+  tib <- file_tib[c(data_i:(data_i+n.reads)),c(1:4)] %>% 
+    mutate_all(.,as.numeric) %>%
+    mutate(sample.index = i,
+           name = samples[str_i],
+           dilution = dilution.vector[1]/dilution.vector[2],
+           Abs.orig = Abs/dilution)
+  d <- bind_rows(d,tib)
+}
+d_export <- d %>% filter(Wavelength==280) %>% select(sample.index,name,dilution,Abs,Abs.orig)
+view(d_export)
+```
+```{r}
+d %>% filter(Wavelength==280)
+```
+
+

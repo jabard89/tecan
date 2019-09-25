@@ -1,7 +1,7 @@
 ---
 title: "Generate Fits for Bradfords"
 author: "Jared Bard"
-date: "2019/08/06"
+date: "2019/08/12"
 output:
   html_document:
     toc: yes
@@ -62,20 +62,21 @@ A script to generate a new .html for each bradford assay that plots the data, ge
 
 ```{r set_global, echo = 'fase'}
 remove(sample_wells_list)
-file_name <- "190806-lysate-bradfords-2" #file name without the trailing csv
+file_name <- "190812-1-tsp-bradford" #file name without the trailing csv
 data_directory <- path("input")
-n_samples <- 4 #used to double check inputs
+n_samples <- 5 #used to double check inputs
 #all parameters should be entered such that each sample has one entry in the lists
-sample_names <- list("30C_minus","30C_plus","42C_minus","42C_plus")
-sample_dilutions <- c(0.02,0.02,0.02) %>% list(.,.,.,c(0.02,0.02,0.02,0.02))
-sample_wells_list <-list(c("D2","D3","D4"),c("E1","E2","E3"),c("F1","F2","F3"),c("G1","G2","G3","G4"))
-sample_mws <- list(50e3,50e3,50e3,50e3) #in Da
+sample_names <- list("L_minus","L_plus","M_minus","M_plus","M_minus")
+sample_dilutions <- c(0.05,0.05,0.05) %>% list(.,.,.,.,c(0.1,0.1,0.1))
+sample_wells_list <-list(c("D1","D2","D3"),c("E1","E2","E3"),
+                         c("F1","F2","F3"),c("G1","G2","G3"),c("H1","H2","H3"))
+sample_mws <- list(50e3,50e3,50e3,50e3,50e3) #in Da
 
 #Standards
 #Default is BSA
 standard_reps <- 3
-standard_wells <- list(str_c("A",2:5),str_c("B",2:5),str_c("C",2:5))
-standard_concentrations <- c(0.5/2,0.5/4,0.5/8,0.5/16) %>% list(.,.,.)
+standard_wells <- list(str_c("A",1:5),str_c("B",1:5),str_c("C",1:5))
+standard_concentrations <- c(0.5,0.5/2,0.5/4,0.5/8,0.5/16) %>% list(.,.,.)
 standard_mw <- 50e3
 ```
 
