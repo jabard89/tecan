@@ -81,14 +81,16 @@ def main():
 				temperature.append(columns[0].split(' ')[0]) #extract just the number
 			elif block_i > 1:
 				row_i = block_i - 2 #which row of the data are we in
-				for column_i,c in enumerate(columns):
+				for column_i,c in enumerate(columns[0:-1]):  # strip the last tab
 					if c:
 						data_temp[row_i,column_i] = float(c)
-				if block_i == (block_size - 1): #for the last row, add the matrix to the list of all data
+					else:
+						data_temp[row_i,column_i] = float('NaN')
+				if block_i == (block_size - 1):  # for the last row, add the matrix to the list of all data
 					data.append(data_temp)
 	#Determine how many measurements were made
 	n_measurements = divmod(len(data),n_channels)[0]
-	measured_wells_i = np.transpose(np.nonzero(data[0][:,:])) #extract the locations of all non-zero measurements
+	measured_wells_i = np.transpose(np.nonzero(~np.isnan(data[0][:,:]))) #extract the locations of all non-zero measurements
 	alphabet = ('A','B','C','D','E','F','G','H','I')
 	measured_wells = []
 
