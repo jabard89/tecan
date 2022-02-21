@@ -1,0 +1,44 @@
+---
+title: "lysate_norm"
+author: "Jared Bard"
+date: "02/21/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fs)
+library(tidyverse)
+library(readxl)
+```
+```{r}
+file_dir <- path("C:/Users/jabar/Dropbox (Drummond Lab)/Data_JB/Plate/A280/")
+file <- "200221-lysate-1to20-remove7"
+file_path <- path(file_dir,paste(file,".xlsx",sep=""))
+file_tib <- read_excel(file_path)
+names(file_tib) <- c("Wavelength","Measured","Blank","Abs")
+
+wavelength.start <- as.numeric(file_tib[5,4])
+wavelength.end <- as.numeric((file_tib[6,4]))
+n.reads <- wavelength.end - wavelength.start
+n_samples <- 12
+samples <- toString(c(1:n_samples))
+d <- tibble()
+for (i in 1:n_samples){
+  str_i <- (i-1)*2+3
+  name <- samples[str_i]
+  dilution.vector <- c(1,20)
+  data_i <- (i-1)*4+(i-1)*n.reads + 13
+  tib <- file_tib[c(data_i:(data_i+n.reads)),c(1:4)] %>% 
+    mutate_all(.,as.numeric) %>%
+    mutate(sample.index = i,
+           name = samples[str_i],
+           dilution = dilution.vector[1]/dilution.vector[2],
+           Abs.orig = Abs/dilution)
+  d <- bind_rows(d,tib)
+}
+d_export <- d %>% filter(Wavelength==280) %>% select(sample.index,name,dilution,Abs,Abs.orig)
+d_min <- min(d_export$Abs)
+total_vol <- 10
+d_norm <- d_export %>% mutate(norm.abs = Abs/d_min,sample.vol=total_vol/norm.abs,buffer.vol=total_vol-sample.vol)
+```
