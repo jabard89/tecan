@@ -2,13 +2,14 @@
 Created on 2/21/2022
 @author: Jared Bard
 Script for pulling data from excel timecourse data from Tecan Spark
+should be channel agnostic
+need to install openpyxl (on ubuntu: conda install openpyxl)
 """
 
 import sys, os, math, random, argparse, csv
 from datetime import datetime
 import pandas as pd
 import numpy as np
-import xlrd
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description="Generate options")
@@ -31,7 +32,7 @@ if __name__ == '__main__':
 	raw = pd.read_excel(args.input,header=None,engine='openpyxl')
 	channel_scan = raw.iloc[:,0]
   
-  #scan to find row indices for channels
+  	#scan to find row indices for channels
 	read_flag = False #flag for whether a channel is being scanned
 	data_rows=[]
 	wells = []
@@ -51,8 +52,10 @@ if __name__ == '__main__':
 		
 		else: #if its not the column headers, and its not the end, it must be data!
 			if pd.isna(item):
-				read_flag = False #done scannign this channel
-			cycle = float(row[0])
+				read_flag = False #done scanning this channel
+				continue
+
+			cycle = int(row[0])
 			temperature = float(row[1])
 			times = [float(row[i])/1000/60 for i in range(3,len(row),2)]
 			values = [row[i] for i in range(2,len(row),2)]
